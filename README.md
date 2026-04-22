@@ -1,101 +1,167 @@
-# API de Cálculo de Frete Rodoviário
+# 🚚 Freight Calculation API
 
-API REST desenvolvida com **FastAPI** e **SQLite** para cálculo de frete rodoviário, contemplando tarifa por tonelada, pedágios por rota, ad valorem/seguro e ICMS interestadual.
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0+-D71F00)](https://www.sqlalchemy.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
+[![Status](https://img.shields.io/badge/status-active-success)]()
 
-## Tecnologias
-- Python 3.11+
-- FastAPI
-- SQLAlchemy
-- SQLite
-- Uvicorn
+REST API for **road freight cost calculation** based on real Brazilian logistics business rules — per-ton tariffs, per-state tolls, ad valorem/insurance, and interstate ICMS tax.
 
-## Instalação
+> 💡 Companion backend for a Streamlit freight calculator frontend. Demonstrates a full-stack approach: web UI for operators + REST API for system-to-system integration.
 
-```bash
-pip install fastapi uvicorn sqlalchemy
+---
+
+## ✨ Features
+
+- 🧮 **Full freight calculation** — base freight + tolls + ad valorem/insurance + ICMS, itemized
+- 🗺️ **Route CRUD** — register routes with per-ton tariffs and per-state toll lists
+- 💰 **Interstate ICMS** — automatic rate lookup following ANTT/CONFAZ matrix
+- 📊 **Transparent output** — every component of the cost returned separately
+- 📖 **Interactive docs** — Swagger UI at `/docs` and ReDoc at `/redoc` out of the box
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer        | Technology     |
+| ------------ | -------------- |
+| Language     | Python 3.11+   |
+| Framework    | FastAPI        |
+| ORM          | SQLAlchemy 2.0 |
+| Database     | SQLite         |
+| ASGI server  | Uvicorn        |
+| Validation   | Pydantic v2    |
+
+---
+
+## 📐 Business Rules
+
+Every `/calcular` request is resolved as:
+
+```
+frete_base       = peso_toneladas × tarifa_por_tonelada
+advalorem_seguro = valor_nota × 0.74%
+pedagio_total    = Σ pedágios da rota
+subtotal         = frete_base + pedagio_total + advalorem_seguro
+icms             = subtotal × alíquota_interestadual(origem → destino)
+total            = subtotal + icms
 ```
 
-## Executar
+ICMS rates follow the Brazilian interstate matrix (7% for Norte/Nordeste/Centro-Oeste destinations, 12% for Sul/Sudeste, etc).
 
-```bash
-uvicorn main:app --reload
-```
+---
 
-Acesse a documentação interativa em: http://localhost:8000/docs
+## 🔌 Endpoints
 
-## Regras de Negócio
+| Method | Path                            | Description                  |
+| ------ | ------------------------------- | ---------------------------- |
+| POST   | `/rotas`                        | Register a new route         |
+| GET    | `/rotas`                        | List all routes              |
+| GET    | `/rotas/{origem}/{destino}`     | Get a specific route         |
+| PUT    | `/rotas/{origem}/{destino}`     | Update route tariff/tolls    |
+| DELETE | `/rotas/{origem}/{destino}`     | Delete route                 |
+| POST   | `/calcular`                     | Calculate full freight cost  |
 
-| Componente | Cálculo |
-|---|---|
-| Frete base | Peso (ton) × Tarifa da rota |
-| Pedágio | Soma fixa por estados percorridos |
-| Ad valorem + Seguro | 0,74% do valor da nota fiscal |
-| Subtotal | Frete base + Pedágio + Ad valorem/Seguro |
-| ICMS | Subtotal × alíquota interestadual (tabela ANTT/CONFAZ) |
-| **Total** | **Subtotal + ICMS** |
+Full interactive documentation at `GET /docs`.
 
-## Endpoints
+---
 
-### Rotas
-| Método | Endpoint | Descrição |
-|---|---|---|
-| POST | `/rotas` | Cadastrar nova rota |
-| GET | `/rotas` | Listar todas as rotas |
-| GET | `/rotas/{origem}/{destino}` | Buscar rota específica |
-| PUT | `/rotas/{origem}/{destino}` | Atualizar rota |
-| DELETE | `/rotas/{origem}/{destino}` | Remover rota |
+## 📋 Example: Calculate Freight
 
-### Cálculo
-| Método | Endpoint | Descrição |
-|---|---|---|
-| POST | `/calcular` | Calcular frete completo |
+**Request:**
 
-## Exemplo de Uso
-
-### 1. Cadastrar rota SP → MG
-
-```json
-POST /rotas
-{
-  "origem": "SP",
-  "destino": "MG",
-  "tarifa_por_tonelada": 350.00,
-  "pedagios": [
-    {"estado": "SP", "valor": 120.00},
-    {"estado": "MG", "valor": 320.00}
-  ]
-}
-```
-
-### 2. Calcular frete
-
-```json
+```http
 POST /calcular
+Content-Type: application/json
+
 {
   "origem": "SP",
   "destino": "MG",
-  "peso_toneladas": 10.5,
-  "valor_nota": 50000.00
+  "peso_toneladas": 28,
+  "valor_nota": 150000.00
 }
 ```
 
-### Resposta
+**Response:**
+
 ```json
 {
   "origem": "SP",
   "destino": "MG",
-  "peso_toneladas": 10.5,
-  "valor_nota": 50000.0,
-  "frete_base": 3675.00,
-  "pedagio_total": 440.00,
-  "advalorem_seguro": 370.00,
-  "subtotal": 4485.00,
-  "aliquota_icms": 12.0,
-  "icms": 538.20,
-  "total": 5023.20,
+  "peso_toneladas": 28,
+  "valor_nota": 150000.00,
+  "frete_base": 4200.00,
+  "pedagio_total": 85.50,
+  "advalorem_seguro": 1110.00,
+  "subtotal": 5395.50,
+  "aliquota_icms": 12,
+  "icms": 647.46,
+  "total": 6042.96,
   "detalhes_pedagio": [
-    {"id": 1, "estado": "SP", "valor": 120.00},
-    {"id": 2, "estado": "MG", "valor": 320.00}
+    { "estado": "SP", "valor": 42.75 },
+    { "estado": "MG", "valor": 42.75 }
   ]
 }
 ```
+
+---
+
+## 🚀 Running Locally
+
+```bash
+# 1. Clone
+git clone https://github.com/Azevedo-073/api-frete.git
+cd api-frete
+
+# 2. Install dependencies
+pip install fastapi "uvicorn[standard]" sqlalchemy pydantic
+
+# 3. Run the server
+uvicorn main:app --reload
+
+# 4. Open Swagger UI
+# → http://127.0.0.1:8000/docs
+```
+
+---
+
+## 📁 Project Structure
+
+```
+api-frete/
+├── main.py        # FastAPI app + route handlers
+├── database.py    # SQLAlchemy models (Rota, Pedagio) + session
+├── schemas.py     # Pydantic schemas (request/response)
+├── icms.py        # Interstate ICMS rate lookup
+├── README.md
+└── .gitignore
+```
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] Deploy to Railway with live demo URL + badge
+- [ ] Migrate SQLite → PostgreSQL for production durability
+- [ ] API key authentication
+- [ ] Rate-limiting middleware
+- [ ] Dockerfile for containerized deploy
+- [ ] GitHub Actions CI (lint + pytest)
+- [ ] Full pytest coverage on all endpoints
+
+---
+
+## 👤 Author
+
+**Marco Azevedo**  
+Logistics automation — building real tools for real freight operations in Brazil.
+
+- 💼 [LinkedIn](https://www.linkedin.com/in/marco-otávio-azevedo)
+- 🐙 [GitHub](https://github.com/Azevedo-073)
+
+---
+
+## 📄 License
+
+MIT

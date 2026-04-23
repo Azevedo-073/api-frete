@@ -1,8 +1,18 @@
+import os
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 
-DATABASE_URL = "sqlite:///./frete.db"
+# Path do DB vem de env var (Railway usa /app/data/frete.db no volume)
+# Local, sem env var, continua usando ./frete.db
+DB_PATH = os.getenv("DB_PATH", "./frete.db")
+
+# Garante que o diretório existe (pro volume no primeiro boot)
+db_dir = os.path.dirname(DB_PATH)
+if db_dir:
+    os.makedirs(db_dir, exist_ok=True)
+
+DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

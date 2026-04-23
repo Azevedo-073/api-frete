@@ -5,10 +5,19 @@
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0+-D71F00)](https://www.sqlalchemy.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
 [![Status](https://img.shields.io/badge/status-active-success)]()
+[![Deploy on Railway](https://img.shields.io/badge/deploy-Railway-0B0D0E?logo=railway&logoColor=white)](https://web-production-39b08.up.railway.app/docs)
 
 REST API for **road freight cost calculation** based on real Brazilian logistics business rules — per-ton tariffs, per-state tolls, ad valorem/insurance, and interstate ICMS tax.
 
 > 💡 Companion backend for a Streamlit freight calculator frontend. Demonstrates a full-stack approach: web UI for operators + REST API for system-to-system integration.
+
+---
+
+## 🔗 Live Demo
+
+**Swagger UI:** https://web-production-39b08.up.railway.app/docs
+
+Interactive API docs with all endpoints. Try `POST /rotas` to register a route, then `POST /calcular` to compute freight cost. Demo data persists across deploys (SQLite on Railway volume).
 
 ---
 
@@ -19,6 +28,7 @@ REST API for **road freight cost calculation** based on real Brazilian logistics
 - 💰 **Interstate ICMS** — automatic rate lookup following ANTT/CONFAZ matrix
 - 📊 **Transparent output** — every component of the cost returned separately
 - 📖 **Interactive docs** — Swagger UI at `/docs` and ReDoc at `/redoc` out of the box
+- 💾 **Persistent storage** — SQLite on Railway volume, data survives redeploys
 
 ---
 
@@ -32,6 +42,7 @@ REST API for **road freight cost calculation** based on real Brazilian logistics
 | Database     | SQLite         |
 | ASGI server  | Uvicorn        |
 | Validation   | Pydantic v2    |
+| Deploy       | Railway        |
 
 ---
 
@@ -115,7 +126,7 @@ git clone https://github.com/Azevedo-073/api-frete.git
 cd api-frete
 
 # 2. Install dependencies
-pip install fastapi "uvicorn[standard]" sqlalchemy pydantic
+pip install -r requirements.txt
 
 # 3. Run the server
 uvicorn main:app --reload
@@ -124,16 +135,30 @@ uvicorn main:app --reload
 # → http://127.0.0.1:8000/docs
 ```
 
+The local SQLite file (`frete.db`) is created automatically on first run.
+
+---
+
+## ☁️ Deploying on Railway
+
+1. Fork this repo
+2. Create a new Railway project → **Deploy from GitHub repo**
+3. Attach a **Volume** to the service with mount path `/app/data`
+4. Add an environment variable: `DB_PATH=/app/data/frete.db`
+5. Railway detects FastAPI via the `Procfile` and serves it on the generated domain
+
 ---
 
 ## 📁 Project Structure
 
 ```
 api-frete/
-├── main.py        # FastAPI app + route handlers
-├── database.py    # SQLAlchemy models (Rota, Pedagio) + session
-├── schemas.py     # Pydantic schemas (request/response)
-├── icms.py        # Interstate ICMS rate lookup
+├── main.py          # FastAPI app + route handlers
+├── database.py      # SQLAlchemy models (Rota, Pedagio) + session
+├── schemas.py       # Pydantic schemas (request/response)
+├── icms.py          # Interstate ICMS rate lookup
+├── requirements.txt # Pinned dependencies
+├── Procfile         # Railway start command
 ├── README.md
 └── .gitignore
 ```
@@ -142,7 +167,8 @@ api-frete/
 
 ## 🗺️ Roadmap
 
-- [ ] Deploy to Railway with live demo URL + badge
+- [x] Deploy to Railway with persistent SQLite volume
+- [x] Complete README with endpoints + example payload
 - [ ] Migrate SQLite → PostgreSQL for production durability
 - [ ] API key authentication
 - [ ] Rate-limiting middleware
